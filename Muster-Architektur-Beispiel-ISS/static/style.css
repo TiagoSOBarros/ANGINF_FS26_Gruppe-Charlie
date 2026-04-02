@@ -1,0 +1,57 @@
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 24px;
+  background: #f7f7f7;
+  color: #222;
+}
+
+.container {
+  max-width: 1000px;
+  margin: 0 auto;
+  background: white;
+  padding: 24px;
+  border-radius: 12px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
+}
+
+h1 {
+  margin-top: 0;
+}
+
+p {
+  line-height: 1.5;
+}
+
+.meta {
+  margin-bottom: 16px;
+  color: #555;
+}
+
+canvas {
+  width: 100%;
+  max-width: 100%;
+  border: 1px solid #ddd;
+  background: #fff;
+  border-radius: 8px;
+  display: block;
+}
+
+.status {
+  margin: 12px 0 20px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f1f3f5;
+}
+
+.legend {
+  margin-top: 16px;
+  font-size: 14px;
+  color: #444;
+}
+
+code {
+  background: #f1f3f5;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
