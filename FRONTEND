@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wetter Zürich</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+    <style>
+        body { background: linear-gradient(135deg, #0f172a, #1e2937); }
+        .card { background: rgba(255,255,255,0.1); backdrop-filter: blur(10px); }
+    </style>
+</head>
+<body class="min-h-screen text-white font-sans">
+
+    <div class="max-w-4xl mx-auto p-6">
+        <!-- Header -->
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-4xl font-bold flex items-center gap-3">
+                <i class="fas fa-cloud-sun text-yellow-400"></i>
+                Data-Driven Wetter
+            </h1>
+            <div class="flex items-center gap-3">
+                <input id="cityInput" type="text" value="Zürich" 
+                       class="bg-white/20 border border-white/30 rounded-xl px-4 py-3 focus:outline-none focus:border-white text-lg">
+                <button onclick="fetchWeather()" 
+                        class="bg-blue-600 hover:bg-blue-700 px-8 py-3 rounded-xl font-semibold transition">
+                    <i class="fas fa-sync"></i> Aktualisieren
+                </button>
+            </div>
+        </div>
+
+        <!-- Haupt-Card -->
+        <div id="weatherCard" class="card rounded-3xl p-8 shadow-2xl">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h2 id="cityName" class="text-5xl font-bold">Zürich</h2>
+                    <p id="description" class="text-2xl text-white/80 mt-1">—</p>
+                    <p id="timestamp" class="text-sm text-white/60 mt-4">Letzte Aktualisierung: —</p>
+                </div>
+                <div class="text-right">
+                    <div id="temperature" class="text-8xl font-light">— °C</div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-6 mt-12">
+                <div class="text-center">
+                    <i class="fas fa-tint text-3xl text-blue-400 mb-2"></i>
+                    <p class="text-sm text-white/70">Luftfeuchtigkeit</p>
+                    <p id="humidity" class="text-3xl font-semibold">— %</p>
+                </div>
+                <div class="text-center">
+                    <i class="fas fa-wind text-3xl text-teal-400 mb-2"></i>
+                    <p class="text-sm text-white/70">Wind</p>
+                    <p id="wind" class="text-3xl font-semibold">— km/h</p>
+                </div>
+                <div class="text-center">
+                    <i class="fas fa-clock text-3xl text-orange-400 mb-2"></i>
+                    <p class="text-sm text-white/70">Gefühlt</p>
+                    <p id="feelsLike" class="text-3xl font-semibold">— °C</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Historische Daten (falls dein Backend mehrere Einträge liefert) -->
+        <div class="mt-10">
+            <h3 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                <i class="fas fa-history"></i> Letzte Messungen
+            </h3>
+            <div id="history" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- Wird per JavaScript gefüllt -->
+            </div>
+        </div>
+
+        <p class="text-center text-xs text-white/40 mt-12">
+            Dein eigenes Data-Driven Webservice • Frontend von Simon
+        </p>
+    </div>
+
+    <script>
+        // ←←← HIER ÄNDERN: URL deines eigenen Webservices (Flask)
+        const API_URL = "http://localhost:5000/api/weather";   // Beispiel: deine Flask-Route
+
+        async function fetchWeather() {
+            const city = document.getElementById("cityInput").value.trim() || "Zürich";
+
+            try {
+                const response = await fetch(API_URL + "?city=" + encodeURIComponent(city));
+                if (!response.ok) throw new Error("Fehler beim Abrufen");
+
+                const data = await response.json();
+
+                // Haupt-Wetter anzeigen
+                document.getElementById("cityName").textContent = data.city || city;
+                document.getElementById("temperature").textContent = data.temperature + " °C";
+                document.getElementById("description").textContent = data.description || "—";
+                document.getElementById("humidity").textContent = data.humidity + " %";
+                document.getElementById("wind").textContent = data.wind_speed + " km/h";
+                document.getElementById("feelsLike").textContent = (data.feels_like || data.temperature) + " °C";
+                document.getElementById("timestamp").textContent = 
+                    "Letzte Aktualisierung: " + (data.timestamp || new Date().toLocaleString('de-CH'));
+
+                // Falls dein Backend mehrere historische Einträge zurückgibt
+                if (data.history && Array.isArray(data.history)) {
+                    renderHistory(data.history);
+                }
+            } catch (err) {
+                alert("Fehler: Konnte Daten nicht laden.\n\nStelle sicher, dass dein Backend läuft auf: " + API_URL);
+                console.error(err);
+            }
+        }
+
+        function renderHistory(history) {
+            const container = document.getElementById("history");
+            container.innerHTML = "";
+            history.slice(0, 6).forEach(item => {
+                const div = document.createElement("div");
+                div.className = "card rounded-2xl p-5 text-center";
+                div.innerHTML = `
+                    <p class="text-sm text-white/60">${new Date(item.timestamp).toLocaleDateString('de-CH')}</p>
+                    <p class="text-4xl font-light">${item.temperature} °C</p>
+                    <p class="text-sm">${item.description}</p>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        // Beim Laden der Seite einmal abrufen
+        window.onload = fetchWeather;
+    </script>
+</body>
+</html>
