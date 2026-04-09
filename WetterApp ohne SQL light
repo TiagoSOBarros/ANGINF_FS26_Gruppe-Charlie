@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Schweiz Kantone Wetter</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+  <style>
+    body {
+      background: linear-gradient(135deg, #1e3a8a, #0f172a);
+      font-family: system-ui, -apple-system, sans-serif;
+      color: white;
+    }
+
+    .glass {
+      background: rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.18);
+    }
+
+    .canton {
+      fill: rgba(255,255,255,0.10);
+      stroke: rgba(255,255,255,0.60);
+      stroke-width: 1.2;
+      cursor: pointer;
+      transition: fill 0.2s ease, transform 0.2s ease;
+    }
+
+    .canton:hover {
+      fill: rgba(255,255,255,0.25);
+    }
+
+    .canton.active {
+      fill: rgba(250, 204, 21, 0.55);
+      stroke: rgba(255,255,255,0.95);
+      stroke-width: 2;
+    }
+
+    .kanton-btn {
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(255,255,255,0.08);
+      transition: all 0.2s ease;
+    }
+
+    .kanton-btn:hover {
+      background: rgba(255,255,255,0.18);
+    }
+
+    .kanton-btn.active {
+      background: rgba(250, 204, 21, 0.28);
+      border-color: rgba(250, 204, 21, 0.55);
+    }
+
+    .small-muted {
+      color: rgba(255,255,255,0.65);
+    }
+
+    svg {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    .map-wrap {
+      min-height: 520px;
+    }
+
+    .loading {
+      opacity: 0.75;
+    }
+  </style>
+</head>
+<body class="min-h-screen p-4 md:p-6">
+  <div class="max-w-7xl mx-auto">
+    <div class="mb-5">
+      <h1 class="text-3xl md:text-4xl font-bold">Schweiz – Wetter nach Kanton</h1>
+      <p class="small-muted mt-2">Klicke auf einen Kanton in der Karte oder in der Liste.</p>
+    </div>
+
+    <div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
+      <!-- Karte -->
+      <div class="xl:col-span-7">
+        <div class="glass rounded-3xl p-4 md:p-6 shadow-2xl map-wrap">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-2xl font-semibold">Kantonskarte</h2>
+            <div class="text-sm small-muted" id="mapStatus">Lade Kantonsgrenzen…</div>
+          </div>
+
+          <div class="w-full overflow-hidden rounded-2xl">
+            <svg id="swissMap" viewBox="0 0 900 620" aria-label="Klickbare Karte der Schweiz"></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Seitenpanel -->
+      <div class="xl:col-span-5">
+        <div class="glass rounded-3xl p-5 md:p-6 shadow-2xl mb-6">
+          <div class="flex justify-between items-start gap-4 mb-5">
+            <div>
+              <h2 id="ort" class="text-4xl font-bold">Bitte Kanton wählen</h2>
+              <p id="datum" class="text-lg text-white/70 mt-1">--</p>
+            </div>
+            <i id="icon" class="fas fa-cloud text-6xl text-yellow-300"></i>
+          </div>
+
+          <div class="flex items-baseline gap-2 mb-3">
+            <div id="temperatur" class="text-7xl md:text-8xl font-light">--</div>
+            <div class="text-3xl md:text-4xl">°C</div>
+          </div>
+
+          <p id="wetterart" class="text-2xl md:text-3xl text-white/90 mb-6">--</p>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="flex items-center gap-4 bg-white/10 rounded-2xl p-5">
+              <i class="fas fa-droplet text-4xl text-blue-300"></i>
+              <div class="flex-1">
+                <p class="text-sm uppercase tracking-widest text-white/60">Luftfeuchtigkeit</p>
+                <div class="flex items-baseline gap-2">
+                  <span id="luftfeuchtigkeit" class="text-4xl font-semibold">--</span>
+                  <span class="text-2xl">%</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-4 bg-white/10 rounded-2xl p-5">
+              <i class="fas fa-wind text-4xl text-cyan-300"></i>
+              <div class="flex-1">
+                <p class="text-sm uppercase tracking-widest text-white/60">Wind</p>
+                <div class="flex items-baseline gap-2">
+                  <span id="wind" class="text-4xl font-semibold">--</span>
+                  <span class="text-2xl">km/h</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-4 bg-white/10 rounded-2xl p-5">
+              <i class="fas fa-temperature-half text-4xl text-orange-300"></i>
+              <div class="flex-1">
+                <p class="text-sm uppercase tracking-widest text-white/60">Gefühlte Temp.</p>
+                <div class="flex items-baseline gap-2">
+                  <span id="apparent" class="text-4xl font-semibold">--</span>
+                  <span class="text-2xl">°C</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-4 bg-white/10 rounded-2xl p-5">
+              <i class="fas fa-code text-4xl text-purple-300"></i>
+              <div class="flex-1">
+                <p class="text-sm uppercase tracking-widest text-white/60">Weather Code</p>
+                <div class="flex items-baseline gap-2">
+                  <span id="weathercode" class="text-4xl font-semibold">--</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-6 text-sm small-muted" id="coordsInfo">Koordinaten: --</div>
+        </div>
+
+        <div class="glass rounded-3xl p-5 md:p-6 shadow-2xl">
+          <h3 class="text-2xl font-semibold mb-4">Kantone</h3>
+          <div id="kantonListe" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const CANTONS = [
+      { abbr: "AG", name: "Aargau", slug: "aargau" },
+      { abbr: "AI", name: "Appenzell Innerrhoden", slug: "appenzell-innerrhoden" },
+      { abbr: "AR", name: "Appenzell Ausserrhoden", slug: "appenzell-ausserrhoden" },
+      { abbr: "BE", name: "Bern", slug: "berne" },
+      { abbr: "BL", name: "Basel-Landschaft", slug: "basel-landschaft" },
+      { abbr: "BS", name: "Basel-Stadt", slug: "basel-stadt" },
+      { abbr: "FR", name: "Fribourg", slug: "fribourg" },
+      { abbr: "GE", name: "Genf", slug: "geneva" },
+      { abbr: "GL", name: "Glarus", slug: "glarus" },
+      { abbr: "GR", name: "Graubünden", slug: "grisons" },
+      { abbr: "JU", name: "Jura", slug: "jura" },
+      { abbr: "LU", name: "Luzern", slug: "lucerne" },
+      { abbr: "NE", name: "Neuchâtel", slug: "neuchâtel" },
+      { abbr: "NW", name: "Nidwalden", slug: "nidwalden" },
+      { abbr: "OW", name: "Obwalden", slug: "obwalden" },
+      { abbr: "SG", name: "St. Gallen", slug: "st-gallen" },
+      { abbr: "SH", name: "Schaffhausen", slug: "schaffhausen" },
+      { abbr: "SO", name: "Solothurn", slug: "solothurn" },
+      { abbr: "SZ", name: "Schwyz", slug: "schwyz" },
+      { abbr: "TG", name: "Thurgau", slug: "thurgau" },
+      { abbr: "TI", name: "Tessin", slug: "ticino" },
+      { abbr: "UR", name: "Uri", slug: "uri" },
+      { abbr: "VD", name: "Vaud", slug: "vaud" },
+      { abbr: "VS", name: "Wallis", slug: "valais" },
+      { abbr: "ZG", name: "Zug", slug: "zug" },
+      { abbr: "ZH", name: "Zürich", slug: "zurich" }
+    ];
+
+    const GEO_BASE = "https://cdn.jsdelivr.net/npm/world-geojson@3.4.0/states/switzerland";
+    const svg = d3.select("#swissMap");
+    const width = 900;
+    const height = 620;
+    const g = svg.append("g");
+
+    let allFeatures = [];
+    let currentCanton = null;
+
+    function mapWeatherCode(code) {
+      if (code === 0) return { text: "Sonnig", icon: "fa-sun" };
+      if ([1, 2, 3].includes(code)) return { text: "Teilweise bewölkt", icon: "fa-cloud-sun" };
+      if ([45, 48].includes(code)) return { text: "Nebel", icon: "fa-smog" };
+      if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return { text: "Regen", icon: "fa-cloud-rain" };
+      if ([71, 73, 75, 77, 85, 86].includes(code)) return { text: "Schnee", icon: "fa-snowflake" };
+      if ([95, 96, 99].includes(code)) return { text: "Gewitter", icon: "fa-bolt" };
+      return { text: "Unbekannt", icon: "fa-cloud" };
+    }
+
+    function formatDate(dateString) {
+      const date = new Date(dateString);
+      return date.toLocaleString("de-CH", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+    }
+
+    function setPanelLoading(name) {
+      document.getElementById("ort").textContent = name || "Lade…";
+      document.getElementById("datum").textContent = "Lade Wetterdaten…";
+      document.getElementById("temperatur").textContent = "--";
+      document.getElementById("wetterart").textContent = "--";
+      document.getElementById("luftfeuchtigkeit").textContent = "--";
+      document.getElementById("wind").textContent = "--";
+      document.getElementById("apparent").textContent = "--";
+      document.getElementById("weathercode").textContent = "--";
+      document.getElementById("coordsInfo").textContent = "Koordinaten: --";
+      document.getElementById("icon").className = "fas fa-cloud text-6xl text-yellow-300";
+    }
+
+    function setActiveUI(abbr) {
+      document.querySelectorAll(".kanton-btn").forEach(btn => {
+        btn.classList.toggle("active", btn.dataset.abbr === abbr);
+      });
+
+      d3.selectAll(".canton").classed("active", d => d.properties.abbr === abbr);
+    }
+
+    async function loadWeatherForFeature(feature) {
+      const [lon, lat] = d3.geoCentroid(feature);
+      const name = feature.properties.name;
+      const abbr = feature.properties.abbr;
+
+      currentCanton = abbr;
+      setActiveUI(abbr);
+      setPanelLoading(name);
+
+      document.getElementById("coordsInfo").textContent =
+        `Koordinaten (Zentrum): ${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&timezone=Europe%2FZurich`;
+
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Open-Meteo nicht erreichbar");
+
+        const data = await res.json();
+        const current = data.current;
+        const weather = mapWeatherCode(current.weather_code);
+
+        document.getElementById("ort").textContent = `${name} (${abbr})`;
+        document.getElementById("datum").textContent = formatDate(current.time);
+        document.getElementById("temperatur").textContent = Math.round(current.temperature_2m);
+        document.getElementById("wetterart").textContent = weather.text;
+        document.getElementById("luftfeuchtigkeit").textContent = current.relative_humidity_2m;
+        document.getElementById("wind").textContent = Math.round(current.wind_speed_10m);
+        document.getElementById("apparent").textContent = Math.round(current.apparent_temperature);
+        document.getElementById("weathercode").textContent = current.weather_code;
+        document.getElementById("icon").className = `fas ${weather.icon} text-6xl text-yellow-300`;
+      } catch (err) {
+        console.error(err);
+        document.getElementById("datum").textContent = "Fehler beim Laden";
+        document.getElementById("wetterart").textContent = "Wetterdaten konnten nicht geladen werden";
+      }
+    }
+
+    function renderList(features) {
+      const list = document.getElementById("kantonListe");
+      list.innerHTML = "";
+
+      features
+        .slice()
+        .sort((a, b) => a.properties.name.localeCompare(b.properties.name, "de"))
+        .forEach(feature => {
+          const btn = document.createElement("button");
+          btn.className = "kanton-btn rounded-2xl px-3 py-3 text-left";
+          btn.dataset.abbr = feature.properties.abbr;
+          btn.innerHTML = `
+            <div class="font-semibold">${feature.properties.name}</div>
+            <div class="text-sm text-white/60">${feature.properties.abbr}</div>
+          `;
+          btn.addEventListener("click", () => loadWeatherForFeature(feature));
+          list.appendChild(btn);
+        });
+    }
+
+    function renderMap(features) {
+      const fc = { type: "FeatureCollection", features };
+      const projection = d3.geoMercator().fitSize([width, height], fc);
+      const path = d3.geoPath(projection);
+
+      g.selectAll("*").remove();
+
+      g.selectAll("path")
+        .data(features)
+        .enter()
+        .append("path")
+        .attr("class", "canton")
+        .attr("d", path)
+        .on("click", (_, d) => loadWeatherForFeature(d))
+        .append("title")
+        .text(d => `${d.properties.name} (${d.properties.abbr})`);
+
+      g.selectAll("text")
+        .data(features)
+        .enter()
+        .append("text")
+        .attr("x", d => path.centroid(d)[0])
+        .attr("y", d => path.centroid(d)[1])
+        .attr("text-anchor", "middle")
+        .attr("dominant-baseline", "central")
+        .style("font-size", "10px")
+        .style("fill", "rgba(255,255,255,0.9)")
+        .style("pointer-events", "none")
+        .text(d => d.properties.abbr);
+    }
+
+    async function loadCantons() {
+      try {
+        const loaded = await Promise.all(
+          CANTONS.map(async canton => {
+            const url = `${GEO_BASE}/${encodeURIComponent(canton.slug)}.geojson`;
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`GeoJSON fehlgeschlagen: ${canton.name}`);
+            const geo = await res.json();
+
+            let feature;
+            if (geo.type === "Feature") {
+              feature = geo;
+            } else if (geo.type === "FeatureCollection" && geo.features?.length) {
+              feature = geo.features[0];
+            } else {
+              throw new Error(`Unerwartetes GeoJSON für ${canton.name}`);
+            }
+
+            feature.properties = {
+              ...(feature.properties || {}),
+              name: canton.name,
+              abbr: canton.abbr,
+              slug: canton.slug
+            };
+
+            return feature;
+          })
+        );
+
+        allFeatures = loaded;
+        renderMap(allFeatures);
+        renderList(allFeatures);
+
+        document.getElementById("mapStatus").textContent = "Karte geladen";
+        const initial = allFeatures.find(f => f.properties.abbr === "LU") || allFeatures[0];
+        loadWeatherForFeature(initial);
+      } catch (err) {
+        console.error(err);
+        document.getElementById("mapStatus").textContent = "Fehler beim Laden der Karte";
+        document.getElementById("ort").textContent = "Fehler";
+        document.getElementById("wetterart").textContent = "Kantonskarte konnte nicht geladen werden";
+      }
+    }
+
+    loadCantons();
+
+    setInterval(() => {
+      if (!currentCanton || !allFeatures.length) return;
+      const feature = allFeatures.find(f => f.properties.abbr === currentCanton);
+      if (feature) loadWeatherForFeature(feature);
+    }, 600000);
+  </script>
+</body>
+</html>
+
