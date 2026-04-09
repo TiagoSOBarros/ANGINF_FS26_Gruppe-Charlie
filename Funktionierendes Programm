@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wetter App Schweiz</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+  <style>
+    body {
+      background: linear-gradient(135deg, #1e3a8a, #0f172a);
+      font-family: system-ui, -apple-system, sans-serif;
+      color: white;
+    }
+
+    .weather-card {
+      background: rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+
+    .city-btn.active {
+      background: rgba(255,255,255,0.28);
+      border-color: rgba(255,255,255,0.5);
+    }
+  </style>
+</head>
+<body class="min-h-screen text-white flex items-center justify-center p-4">
+
+  <div class="max-w-2xl w-full">
+    <div class="weather-card rounded-3xl p-8 shadow-2xl">
+
+      <div class="mb-8">
+        <h1 class="text-3xl font-bold mb-4">Wetter Schweiz</h1>
+        <div class="flex flex-wrap gap-3">
+          <button class="city-btn active px-4 py-2 rounded-xl bg-white/10 border border-white/20 hover:bg-white/20 transition" data-city="luzern">
+            Luzern
+          </button>
+          <button class="city-btn px-4 py-2 rounded-xl bg-white/10 border border-white/20 hover:bg-white/20 transition" data-city="zuerich">
+            Zürich
+          </button>
+          <button class="city-btn px-4 py-2 rounded-xl bg-white/10 border border-white/20 hover:bg-white/20 transition" data-city="bern">
+            Bern
+          </button>
+        </div>
+      </div>
+
+      <div class="flex justify-between items-start mb-6">
+        <div>
+          <h2 id="ort" class="text-4xl font-bold">Lädt...</h2>
+          <p id="datum" class="text-lg text-white/70">--</p>
+        </div>
+        <i id="icon" class="fas fa-cloud text-6xl text-yellow-300"></i>
+      </div>
+
+      <div class="flex items-baseline gap-2 mb-4">
+        <div id="temperatur" class="text-8xl font-light">--</div>
+        <div class="text-4xl">°C</div>
+      </div>
+
+      <p id="wetterart" class="text-3xl text-white/90 mb-8">--</p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="flex items-center gap-4 bg-white/10 rounded-2xl p-6">
+          <i class="fas fa-droplet text-4xl text-blue-300"></i>
+          <div class="flex-1">
+            <p class="text-sm uppercase tracking-widest text-white/60">Luftfeuchtigkeit</p>
+            <div class="flex items-baseline gap-2">
+              <span id="luftfeuchtigkeit" class="text-4xl font-semibold">--</span>
+              <span class="text-2xl">%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-4 bg-white/10 rounded-2xl p-6">
+          <i class="fas fa-wind text-4xl text-cyan-300"></i>
+          <div class="flex-1">
+            <p class="text-sm uppercase tracking-widest text-white/60">Wind</p>
+            <div class="flex items-baseline gap-2">
+              <span id="wind" class="text-4xl font-semibold">--</span>
+              <span class="text-2xl">km/h</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-4 bg-white/10 rounded-2xl p-6">
+          <i class="fas fa-temperature-half text-4xl text-orange-300"></i>
+          <div class="flex-1">
+            <p class="text-sm uppercase tracking-widest text-white/60">Gefühlte Temp.</p>
+            <div class="flex items-baseline gap-2">
+              <span id="apparent" class="text-4xl font-semibold">--</span>
+              <span class="text-2xl">°C</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-4 bg-white/10 rounded-2xl p-6">
+          <i class="fas fa-code text-4xl text-purple-300"></i>
+          <div class="flex-1">
+            <p class="text-sm uppercase tracking-widest text-white/60">Weather Code</p>
+            <div class="flex items-baseline gap-2">
+              <span id="weathercode" class="text-4xl font-semibold">--</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="text-center text-xs text-white/40 mt-10">
+        Open-Meteo API • Klickbare Orte
+      </p>
+    </div>
+  </div>
+
+  <script>
+    const CITIES = {
+      luzern: {
+        name: "Luzern",
+        lat: 47.0502,
+        lon: 8.3093
+      },
+      zuerich: {
+        name: "Zürich",
+        lat: 47.3769,
+        lon: 8.5417
+      },
+      bern: {
+        name: "Bern",
+        lat: 46.9480,
+        lon: 7.4474
+      }
+    };
+
+    let currentCity = "luzern";
+
+    function mapWeatherCode(code) {
+      if (code === 0) return { text: "Sonnig", icon: "fa-sun" };
+      if ([1, 2, 3].includes(code)) return { text: "Teilweise bewölkt", icon: "fa-cloud-sun" };
+      if ([45, 48].includes(code)) return { text: "Nebel", icon: "fa-smog" };
+      if ([51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82].includes(code)) return { text: "Regen", icon: "fa-cloud-rain" };
+      if ([71, 73, 75, 77, 85, 86].includes(code)) return { text: "Schnee", icon: "fa-snowflake" };
+      if ([95, 96, 99].includes(code)) return { text: "Gewitter", icon: "fa-bolt" };
+      return { text: "Unbekannt", icon: "fa-cloud" };
+    }
+
+    function formatDate(dateString) {
+      const date = new Date(dateString);
+      return date.toLocaleString("de-CH", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      });
+    }
+
+    async function ladeWetter(cityKey) {
+      const city = CITIES[cityKey];
+      if (!city) return;
+
+      try {
+        document.getElementById("ort").textContent = city.name;
+        document.getElementById("datum").textContent = "Lade Wetterdaten...";
+        document.getElementById("temperatur").textContent = "--";
+        document.getElementById("wetterart").textContent = "--";
+        document.getElementById("luftfeuchtigkeit").textContent = "--";
+        document.getElementById("wind").textContent = "--";
+        document.getElementById("apparent").textContent = "--";
+        document.getElementById("weathercode").textContent = "--";
+
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}&current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m&timezone=Europe%2FZurich`;
+
+        const res = await fetch(url);
+        if (!res.ok) {
+          throw new Error("API-Antwort nicht OK");
+        }
+
+        const data = await res.json();
+        const current = data.current;
+        const weather = mapWeatherCode(current.weather_code);
+
+        document.getElementById("ort").textContent = city.name;
+        document.getElementById("datum").textContent = formatDate(current.time);
+        document.getElementById("temperatur").textContent = Math.round(current.temperature_2m);
+        document.getElementById("wetterart").textContent = weather.text;
+        document.getElementById("luftfeuchtigkeit").textContent = current.relative_humidity_2m;
+        document.getElementById("wind").textContent = Math.round(current.wind_speed_10m);
+        document.getElementById("apparent").textContent = Math.round(current.apparent_temperature);
+        document.getElementById("weathercode").textContent = current.weather_code;
+
+        const icon = document.getElementById("icon");
+        icon.className = `fas ${weather.icon} text-6xl text-yellow-300`;
+
+      } catch (error) {
+        console.error(error);
+        document.getElementById("datum").textContent = "Fehler beim Laden";
+        document.getElementById("wetterart").textContent = "Wetterdaten konnten nicht geladen werden";
+      }
+    }
+
+    document.querySelectorAll(".city-btn").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".city-btn").forEach((b) => b.classList.remove("active"));
+        btn.classList.add("active");
+
+        currentCity = btn.dataset.city;
+        ladeWetter(currentCity);
+      });
+    });
+
+    ladeWetter(currentCity);
+
+    setInterval(() => {
+      ladeWetter(currentCity);
+    }, 600000);
+  </script>
+</body>
+</html>
+
