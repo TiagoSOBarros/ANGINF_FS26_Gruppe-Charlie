@@ -1,16 +1,22 @@
-<!DOCTYPE html>
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wetter - Data-Driven Webservice</title>
+    <title>Wetter App</title>
+
+    <!-- Tailwind CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.c
+    loudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
     <style>
         body {
             background: linear-gradient(135deg, #1e3a8a, #0f172a);
             font-family: system-ui, -apple-system, sans-serif;
+            color: white;
         }
+
         .weather-card {
             background: rgba(255, 255, 255, 0.12);
             backdrop-filter: blur(16px);
@@ -18,71 +24,100 @@
         }
     </style>
 </head>
-<body class="min-h-screen text-white flex items-center justify-center">
 
-    <div class="max-w-lg w-full mx-4">
-        <div class="weather-card rounded-3xl p-10 shadow-2xl">
+<body class="flex items-center justify-center min-h-screen">
 
-            <!-- Ort + Datum -->
-            <div class="flex justify-between items-start mb-6">
-                <div>
-                    <h1 id="ort" class="text-4xl font-bold">Zürich</h1>
-                    <p id="datum" class="text-lg text-white/70">03. April 2026, 09:23</p>
-                </div>
-                <i class="fas fa-cloud-sun text-6xl text-yellow-300"></i>
+<div class="max-w-lg w-full mx-4">
+    <div class="weather-card rounded-3xl p-10 shadow-2xl">
+
+        <!-- Ort + Datum -->
+
+        <div class="flex justify-between items-start mb-6">
+            <div>
+                <h1 id="ort" class="text-4xl font-bold">Lädt...</h1>
+                <p id="datum" class="text-lg text-white/70">--</p>
             </div>
-
-            <!-- Temperatur -->
-            <div class="flex items-baseline gap-2 mb-8">
-                <div id="temperatur" class="text-8xl font-light">12</div>
-                <div class="text-4xl">°C</div>
-            </div>
-
-            <!-- Wetterart -->
-            <p id="wetterart" class="text-3xl text-white/90 mb-8">Leicht bewölkt</p>
-
-            <!-- Luftfeuchtigkeit -->
-            <div class="flex items-center gap-4 bg-white/10 rounded-2xl p-6">
-                <i class="fas fa-droplet text-4xl text-blue-300"></i>
-                <div class="flex-1">
-                    <p class="text-sm uppercase tracking-widest text-white/60">Luftfeuchtigkeit</p>
-                    <div class="flex items-baseline gap-2">
-                        <span id="luftfeuchtigkeit" class="text-5xl font-semibold">68</span>
-                        <span class="text-3xl">%</span>
-                    </div>
-                </div>
-            </div>
-
-            <p class="text-center text-xs text-white/40 mt-12">
-                Data-Driven Webservice • Frontend von Simon
-            </p>
+            <i id="icon" class="fas fa-cloud text-6xl text-yellow-300"></i>
         </div>
+
+        <!-- Temperatur -->
+        <div class="flex items-baseline gap-2 mb-8">
+            <div id="temperatur" class="text-8xl font-light">--</div>
+            <div class="text-4xl">°C</div>
+        </div>
+
+        <!-- Wetterart -->
+        <p id="wetterart" class="text-3xl text-white/90 mb-8">--</p>
+
+        <!-- Luftfeuchtigkeit -->
+        <div class="flex items-center gap-4 bg-white/10 rounded-2xl p-6">
+            <i class="fas fa-droplet text-4xl text-blue-300"></i>
+            <div class="flex-1">
+                <p class="text-sm uppercase tracking-widest text-white/60">Luftfeuchtigkeit</p>
+                <div class="flex items-baseline gap-2">
+                    <span id="luftfeuchtigkeit" class="text-5xl font-semibold">--</span>
+                    <span class="text-3xl">%</span>
+                </div>
+            </div>
+        </div>
+
+        <p class="text-center text-xs text-white/40 mt-12">
+            Open-Meteo API • Frontend
+        </p>
     </div>
+</div>
 
-    <script>
-        // === DEINE API-URL HIER ÄNDERN ===
-        const API_URL = "http://localhost:5000/api/weather";   // Beispiel
+<script>
+    // Zürich Koordinaten
+    const LAT = 47.3769;
+    const LON = 8.5417;
 
-        async function ladeWetter() {
-            try {
-                const res = await fetch(API_URL);
-                const data = await res.json();
+    function mapWeatherCode(code) {
+        if (code === 0) return { text: "Sonnig", icon: "fa-sun" };
+        if (code <= 3) return { text: "Bewölkt", icon: "fa-cloud-sun" };
+        if (code <= 48) return { text: "Nebel", icon: "fa-smog" };
+        if (code <= 67) return { text: "Regen", icon: "fa-cloud-rain" };
+        if (code <= 77) return { text: "Schnee", icon: "fa-snowflake" };
+        if (code <= 99) return { text: "Gewitter", icon: "fa-bolt" };
+        return { text: "Unbekannt", icon: "fa-cloud" };
+    }
 
-                // Die exakt geforderten Felder setzen
-                document.getElementById("ort").textContent = data.ort || data.city || "Unbekannt";
-                document.getElementById("datum").textContent = data.datum || data.timestamp || new Date().toLocaleString('de-CH');
-                document.getElementById("temperatur").textContent = Math.round(data.temperatur || data.temperature);
-                document.getElementById("wetterart").textContent = data.wetterart || data.description || "—";
-                document.getElementById("luftfeuchtigkeit").textContent = data.luftfeuchtigkeit || data.humidity || "—";
+    async function ladeWetter() {
+        try {
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}&current_weather=true&hourly=relativehumidity_2m`;
 
-            } catch (e) {
-                console.error(e);
-                alert("Fehler beim Laden der Daten.\nStelle sicher, dass dein Backend läuft.");
-            }
+            const res = await fetch(url);
+            const data = await res.json();
+
+            const current = data.current_weather;
+
+            // aktuelle Stunde finden für Luftfeuchtigkeit
+            const nowIndex = data.hourly.time.indexOf(current.time);
+            const humidity = data.hourly.relativehumidity_2m[nowIndex];
+
+            const weather = mapWeatherCode(current.weathercode);
+
+            document.getElementById("ort").textContent = "Zürich";
+            document.getElementById("datum").textContent = new Date().toLocaleString('de-CH');
+            document.getElementById("temperatur").textContent = Math.round(current.temperature);
+            document.getElementById("wetterart").textContent = weather.text;
+            document.getElementById("luftfeuchtigkeit").textContent = humidity;
+
+            const icon = document.getElementById("icon");
+            icon.className = `fas ${weather.icon} text-6xl text-yellow-300`;
+
+        } catch (e) {
+            console.error(e);
+            alert("Fehler beim Laden der Wetterdaten");
         }
+    }
 
-        // Beim Laden der Seite automatisch abrufen
-        window.onload = ladeWetter;
-    </script>
+    // initial laden
+    ladeWetter();
+
+    // alle 10 Minuten aktualisieren
+    setInterval(ladeWetter, 600000);
+</script>
+
 </body>
-</html>
+</html
